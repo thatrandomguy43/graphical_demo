@@ -12,6 +12,11 @@
     {
         "directory": ".",
         "command": "clang -g -std=c++2b, -Wall ./imgui/imgui.cpp",
+        "file": "./imgui/imgui_demo.cpp"
+    },
+    {
+        "directory": ".",
+        "command": "clang -g -std=c++2b, -Wall ./imgui/imgui.cpp",
         "file": "./imgui/imgui_draw.cpp"
     },
     {
