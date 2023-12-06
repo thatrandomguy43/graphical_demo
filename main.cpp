@@ -1,9 +1,8 @@
-#include "SDL_main.h"
+#include "imgui.h"
 
 using namespace std;
 
 int main(int argc, char* argv[])
 {
-
     return 0;
 }
