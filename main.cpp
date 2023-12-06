@@ -33,6 +33,10 @@ int main(int argc, char* argv[])
     ImGui_ImplSDL2_InitForOpenGL(window, opengl_context);
     ImGui_ImplOpenGL3_Init();
 
+    for (int i = 0; i < 10000; i++)
+    {
+        print(cout, "hey there");
+    }
 
     ImGui::DestroyContext(ImGui::GetCurrentContext());
     SDL_Quit();
