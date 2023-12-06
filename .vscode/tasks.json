@@ -2,7 +2,7 @@
 	"version": "2.0.0",
 	"tasks": [
 			{
-				"label": "echo",
+				"label": "Windows build",
 				"type": "shell",
 				"command": "clang",
 				"problemMatcher": [],
@@ -16,7 +16,7 @@
 					"\"${workspaceFolder}/sdl/include\"",
 					"-L\"${workspaceFolder}/sdl/lib/x64\"",
 					"-Xlinker",
-					"/SUBSYSTEM:CONSOLE",
+					"/SUBSYSTEM:WINDOWS",
 					"-lSDL2",
 					"-lSDL2main",
 					"-lshell32",
@@ -28,6 +28,7 @@
 					"imgui/imgui.cpp",	
 					"imgui/backends/imgui_impl_sdl2.cpp",
 					"imgui/backends/imgui_impl_opengl3.cpp",
+					"--output=\"gui.exe\""
 				],
 				"group": {
 					"kind": "build",

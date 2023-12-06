@@ -9,8 +9,9 @@ using namespace std;
 
 int main(int argc, char* argv[])
 {
-    int SDLstatus = SDL_Init(SDL_INIT_EVERYTHING);
-    if (SDLstatus != 0) 
+    int err = SDL_Init(SDL_INIT_EVERYTHING);
+    //go reference!
+    if (err != 0) 
     {
         print(cout, "damn bruh sdl couldn't start, this the error: {}", SDL_GetError());
         return 1;
@@ -33,9 +34,18 @@ int main(int argc, char* argv[])
     ImGui_ImplSDL2_InitForOpenGL(window, opengl_context);
     ImGui_ImplOpenGL3_Init();
 
-    for (int i = 0; i < 10000; i++)
+
+    while (true)
     {
-        print(cout, "hey there");
+        SDL_Event event;
+        
+        if (SDL_PollEvent(&event))
+        {
+            if (event.type == SDL_WINDOWEVENT and event.window.event == SDL_WINDOWEVENT_CLOSE)
+            {
+                break;
+            }
+        }
     }
 
     ImGui::DestroyContext(ImGui::GetCurrentContext());
