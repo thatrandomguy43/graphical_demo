@@ -1,10 +1,19 @@
-#include "imgui.h"
-#include "backends/imgui_impl_opengl3.h"
-#include "backends/imgui_impl_sdl2.h"
-#include "SDL.h"
+#include "imgui/imgui.h"
+#include "imgui/backends/imgui_impl_opengl3.h"
+#include "imgui/backends/imgui_impl_sdl2.h"
+#include "sdl/include/SDL.h"
 
 #include <iostream>
 using namespace std;
+
+void LayoutUI()
+{
+    ImGui::SetNextWindowSize({200, 200});
+    ImGui::Begin("epic ass window");
+    ImGui::Button("press for nothing", {50, 50});
+    ImGui::End();
+
+}
 
 int main(int argc, char* argv[])
 {
@@ -45,6 +54,15 @@ int main(int argc, char* argv[])
                 break;
             }
         }
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplSDL2_NewFrame();
+        ImGui::NewFrame();
+
+        LayoutUI();
+
+        ImGui::Render();
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+        SDL_GL_SwapWindow(window);
     }
 
     ImGui::DestroyContext(ImGui::GetCurrentContext());

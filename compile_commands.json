@@ -1,0 +1,42 @@
+[
+    {
+        "directory": ".",
+        "command": "clang -g -std=c++2b, -Wall ./main.cpp",
+        "file": "./main.cpp"
+    },
+    {
+        "directory": ".",
+        "command": "clang -g -std=c++2b, -Wall ./imgui/imgui.cpp",
+        "file": "./imgui/imgui.cpp"
+    },
+    {
+        "directory": ".",
+        "command": "clang -g -std=c++2b, -Wall ./imgui/imgui.cpp",
+        "file": "./imgui/imgui_draw.cpp"
+    },
+    {
+        "directory": ".",
+        "command": "clang -g -std=c++2b, -Wall ./imgui/imgui.cpp",
+        "file": "./imgui/imgui_tables.cpp"
+    },
+    {
+        "directory": ".",
+        "command": "clang -g -std=c++2b, -Wall ./imgui/imgui.cpp",
+        "file": "./imgui/imgui_widgets.cpp"
+    },
+    {
+        "directory": ".",
+        "command": "clang -g -std=c++2b, -Wall ./imgui/imgui.cpp",
+        "file": "./imgui/backends/imgui_impl_sdl2.cpp"
+    },
+    {
+        "directory": ".",
+        "command": "clang -g -std=c++2b, -Wall ./imgui/imgui.cpp",
+        "file": "./imgui/backends/imgui_impl_opengl3.cpp"
+    },
+    {
+        "directory": ".",
+        "command": "clang -g -std=c++2b, -Wall ./imgui/imgui.cpp",
+        "file": "./imgui/misc/cpp/imgui_stdlib.cpp"
+    }
+]
