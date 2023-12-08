@@ -4,6 +4,7 @@
 #include "sdl/include/SDL.h"
 #include "sdl/include//SDL_opengl.h"
 #include <iostream>
+#include <chrono>
 using namespace std;
 
 
@@ -29,6 +30,18 @@ void LayoutUI()
     }
     ImGui::End();
 
+}
+
+void Render3DStuff()
+{/*
+    //singular orange triangle
+    glBegin(GL_TRIANGLES);
+    glVertex3d(0.4,0.4,0.6);
+    glVertex3d(0.4,0.6,0.4);
+    glVertex3d(0.6,0.4,0.0);
+    glColor4i(127, 63, 0, 0);
+    glEnd();
+    */
 }
 
 int main(int argc, char* argv[])
@@ -60,7 +73,8 @@ int main(int argc, char* argv[])
 
 
     while (true)
-    {
+    {   
+        auto frame_start_time = chrono::high_resolution_clock::now();
         SDL_Event event;
         
         if (SDL_PollEvent(&event))
@@ -79,8 +93,11 @@ int main(int argc, char* argv[])
 
         ImGui::Render();
         glClear(GL_COLOR_BUFFER_BIT);
+        
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+        Render3DStuff();
         SDL_GL_SwapWindow(window);
+        print(cout, "rendering took {}", chrono::high_resolution_clock::now()-frame_start_time);
     }
 
     ImGui::DestroyContext(ImGui::GetCurrentContext());
