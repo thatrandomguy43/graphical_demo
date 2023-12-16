@@ -2,11 +2,14 @@
 #include "imgui/backends/imgui_impl_opengl3.h"
 #include "imgui/backends/imgui_impl_sdl2.h"
 #include "sdl/include/SDL.h"
-#include "sdl/include//SDL_opengl.h"
+#include "sdl/include/SDL_opengl.h"
 #include <iostream>
+#include <fstream>
 #include <chrono>
+#include "types.hpp"
 using namespace std;
 
+ofstream LOG;
 
 void LayoutUI()
 {
@@ -32,25 +35,40 @@ void LayoutUI()
 
 }
 
+
+
 void Render3DStuff()
-{/*
-    //singular orange triangle
-    glBegin(GL_TRIANGLES);
-    glVertex3d(0.4,0.4,0.6);
-    glVertex3d(0.4,0.6,0.4);
-    glVertex3d(0.6,0.4,0.0);
-    glColor4i(127, 63, 0, 0);
-    glEnd();
-    */
+{
+    vector<Triangle> triangles = {
+        Triangle{
+        Vertex3D{ RGBColor{1.0, 0.5, 0}, Point3D{-1.0,-1.0,0.0,},},
+        Vertex3D{ RGBColor{1.0, 0.5, 0}, Point3D{-0.5,1.0,0.5,},},
+        Vertex3D{ RGBColor{1.0, 0.5, 0}, Point3D{0.5,0.0,1.0,},}
+        }, Triangle{
+        Vertex3D{ RGBColor{1.0, 0, 0,}, Point3D{-0.5,0.5,0.75,},},
+        Vertex3D{ RGBColor{0, 1.0, 0,}, Point3D{0.5,-0.5,0.75,},},
+        Vertex3D{ RGBColor{0, 0, 1.0,}, Point3D{-0.5,-0.5, 0.75,},}
+        }
+        };
+
+    glEnable(GL_COLOR_MATERIAL);
+    glEnable(GL_DEPTH_TEST);
+    glInterleavedArrays(GL_C3F_V3F, 0, triangles.data());
+    glDrawArrays(GL_TRIANGLES, 0, triangles.size()*3);
+    glDisableClientState(GL_COLOR_ARRAY);
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glDisable(GL_COLOR_MATERIAL);
+    glDisable(GL_DEPTH_TEST);
 }
 
 int main(int argc, char* argv[])
 {
+    LOG.open("./guiapp_log.txt", ios::out);
     int err = SDL_Init(SDL_INIT_EVERYTHING);
     //go reference!
     if (err != 0) 
     {
-        print(cout, "damn bruh sdl couldn't start, this the error: {}", SDL_GetError());
+        println(LOG, "damn bruh sdl couldn't start, this the error: {}", SDL_GetError());
         return 1;
     }
 
@@ -73,8 +91,7 @@ int main(int argc, char* argv[])
 
 
     while (true)
-    {   
-        auto frame_start_time = chrono::high_resolution_clock::now();
+    {
         SDL_Event event;
         
         if (SDL_PollEvent(&event))
@@ -89,15 +106,14 @@ int main(int argc, char* argv[])
         ImGui_ImplSDL2_NewFrame();
         ImGui::NewFrame();
         
-        LayoutUI();
 
+        LayoutUI();
         ImGui::Render();
-        glClear(GL_COLOR_BUFFER_BIT);
-        
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glViewport(0, 0, 1280, 720);
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         Render3DStuff();
         SDL_GL_SwapWindow(window);
-        print(cout, "rendering took {}", chrono::high_resolution_clock::now()-frame_start_time);
     }
 
     ImGui::DestroyContext(ImGui::GetCurrentContext());

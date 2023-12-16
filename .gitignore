@@ -34,3 +34,6 @@
 # Debug information files
 *.ilk
 *.pdb
+
+# Log from the program
+guiapp_log.txt
