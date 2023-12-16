@@ -11,6 +11,11 @@ using namespace std;
 
 ofstream LOG;
 
+namespace GL {
+    
+}
+
+
 void LayoutUI()
 {
     static bool show_demo = false;
@@ -35,30 +40,34 @@ void LayoutUI()
 
 }
 
+const vector<Triangle> test_triangles = {
+    Triangle{
+    Vertex3D{ RGBColor{1.0, 0.5, 0}, Point3D{-1.0,-1.0,0.0,},},
+    Vertex3D{ RGBColor{1.0, 0.5, 0}, Point3D{-0.5,1.0,0.5,},},
+    Vertex3D{ RGBColor{1.0, 0.5, 0}, Point3D{0.5,0.0,1.0,},}
+    }, Triangle{
+    Vertex3D{ RGBColor{1.0, 0, 0,}, Point3D{-0.5,0.5,0.75,},},
+    Vertex3D{ RGBColor{0, 1.0, 0,}, Point3D{0.5,-0.5,0.75,},},
+    Vertex3D{ RGBColor{0, 0, 1.0,}, Point3D{-0.5,-0.5, 0.75,},}
+    }
+};
 
 
-void Render3DStuff()
+void RenderMesh(const vector<Triangle>& mesh)
 {
-    vector<Triangle> triangles = {
-        Triangle{
-        Vertex3D{ RGBColor{1.0, 0.5, 0}, Point3D{-1.0,-1.0,0.0,},},
-        Vertex3D{ RGBColor{1.0, 0.5, 0}, Point3D{-0.5,1.0,0.5,},},
-        Vertex3D{ RGBColor{1.0, 0.5, 0}, Point3D{0.5,0.0,1.0,},}
-        }, Triangle{
-        Vertex3D{ RGBColor{1.0, 0, 0,}, Point3D{-0.5,0.5,0.75,},},
-        Vertex3D{ RGBColor{0, 1.0, 0,}, Point3D{0.5,-0.5,0.75,},},
-        Vertex3D{ RGBColor{0, 0, 1.0,}, Point3D{-0.5,-0.5, 0.75,},}
-        }
-        };
 
-    glEnable(GL_COLOR_MATERIAL);
     glEnable(GL_DEPTH_TEST);
-    glInterleavedArrays(GL_C3F_V3F, 0, triangles.data());
-    glDrawArrays(GL_TRIANGLES, 0, triangles.size()*3);
+    println(LOG, "glEnable error number {}", glGetError());
+    glInterleavedArrays(GL_C3F_V3F, 0, mesh.data());
+    println(LOG, "glInterleavedArrays error number {}", glGetError());
+    glDrawArrays(GL_TRIANGLES, 0, mesh.size()*3);
+    println(LOG, "glDrawArrays error number {}", glGetError());
     glDisableClientState(GL_COLOR_ARRAY);
+    println(LOG, "glDisableClientState error number {}", glGetError());
     glDisableClientState(GL_VERTEX_ARRAY);
-    glDisable(GL_COLOR_MATERIAL);
+    println(LOG, "glDisableClientState error number {}", glGetError());
     glDisable(GL_DEPTH_TEST);
+    println(LOG, "glDisable error number {}", glGetError());
 }
 
 int main(int argc, char* argv[])
@@ -71,16 +80,25 @@ int main(int argc, char* argv[])
         println(LOG, "damn bruh sdl couldn't start, this the error: {}", SDL_GetError());
         return 1;
     }
-
     //i have no idea what this code does, well i guess i kinda know
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
     SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
+
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
+
     SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
     SDL_Window* window = SDL_CreateWindow("hopefully you can read this", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720, window_flags);
     SDL_GLContext opengl_context = SDL_GL_CreateContext(window);
     SDL_GL_MakeCurrent(window, opengl_context);
     SDL_GL_SetSwapInterval(1); // Enable vsync
+
+    int minor, major;
+
+
+    SDL_GL_GetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, &major);
+    SDL_GL_GetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, &minor);
 
     ImGui::CreateContext();
     ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
@@ -112,7 +130,7 @@ int main(int argc, char* argv[])
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glViewport(0, 0, 1280, 720);
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-        Render3DStuff();
+        RenderMesh(test_triangles);
         SDL_GL_SwapWindow(window);
     }
 
