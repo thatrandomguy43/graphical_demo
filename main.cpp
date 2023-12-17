@@ -12,11 +12,21 @@ using namespace std;
 ofstream LOG;
 
 namespace GL {
-    void (*GenBuffers)(GLsizei n, GLuint* buffers); //create buffer handle
-    void (*BindBuffer)(GLenum target, GLuint buffer); //bind buffer handle to one of the built in render bufferes (for me mostly GL_ARRAY_BUFFER)
-    void (*BufferData)(GLenum target, GLsizeiptr size, const GLvoid* data, GLenum usage); //give the specified builtin buffer actual data storage, and also filling in that data
-    void (*VertexAttribPointer)(GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const GLvoid* pointer); 
-    void (*DrawArrays)(GLenum mode, GLint first, GLsizei count);
+    //a VAO vertex array object stores metadata about what array each vertex attribute index (not really an array index, just an arbitrary number chosen by you) is associated with and what that array's data format is
+    //all the data is stored in the GL_ARRAY_BUFFER, so you use the metadata to interleave the multiple attribute arrays, which also seems to be required because you can't tell it when to stop reading one atttrib and start reading another
+    //since each vertex is supposed ot have one of each attribute, the interleaved arrays must be of equal length it seems 
+
+    void (*GenVertexArrays)(GLsizei n, GLuint *arrays) = nullptr; //create n VAO handle and store them in the given array (i should only ever need 1)
+    void (*BindVertexArray)(GLuint array) = nullptr; //make the given VAO the currently active one
+    void (*DeleteVertexArrays)(GLsizei n, const GLuint *arrays) = nullptr; //delete the n VAOs specified in the given array
+    void (*GenBuffers)(GLsizei n, GLuint* buffers) = nullptr; //create buffer handle
+    void (*BindBuffer)(GLenum target, GLuint buffer) = nullptr; //bind buffer handle to one of the built in render buffers (for me mostly GL_ARRAY_BUFFER), if buffer 0 is specified it just unbinds whatever was bound tho that builtin
+    void (*BufferData)(GLenum target, GLsizeiptr size, const GLvoid* data, GLenum usage) = nullptr; //give the specified builtin buffer actual data storage, and also filling in that data
+    void (*DeleteBuffers)(GLsizei n, const GLuint *arrays) = nullptr; //delete the n buffers specified in the given array
+    void (*VertexAttribPointer)(GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const GLvoid* pointer) = nullptr; //defines a new index with its metadata or modifies an existing index in the currently bound VAO
+    void (*EnableVertexAttribArray)(GLuint index) = nullptr; //enable vertex arrib array on current VAO
+    void (*DisableVertexAttribArray)(GLuint index) = nullptr; //disable vertex arrib array on current VAO
+    void (*DrawArrays)(GLenum mode, GLint first, GLsizei count) = nullptr; //draws from the vertex attrib arrays enabled on the current VAO
 }
 
 
@@ -56,6 +66,21 @@ const vector<Triangle> test_triangles = {
     }
 };
 
+
+void LoadOpenGL3Funcs()
+{
+    GL::GenVertexArrays = (void (*)(GLsizei, GLuint*))SDL_GL_GetProcAddress("glGenVertexArrays");
+    GL::BindVertexArray = (void (*)(GLuint))SDL_GL_GetProcAddress("glBindVertexArray");
+    GL::DeleteVertexArrays = (void (*)(GLsizei, const GLuint*))SDL_GL_GetProcAddress("glDeleteVertexArrays");
+    GL::GenBuffers = (void (*)(GLsizei, GLuint*))SDL_GL_GetProcAddress("glGenBuffers");
+    GL::BindBuffer = (void (*)(GLenum, GLuint))SDL_GL_GetProcAddress("glBindBuffer");
+    GL::BufferData = (void (*)(GLenum, GLsizeiptr, const GLvoid*, GLenum))SDL_GL_GetProcAddress("glBufferData");
+    GL::DeleteBuffers = (void (*)(GLsizei, const GLuint*))SDL_GL_GetProcAddress("glDeleteBuffers");
+    GL::VertexAttribPointer = (void (*)(GLuint, GLint, GLenum, GLboolean, GLsizei, const GLvoid*))SDL_GL_GetProcAddress("glVertexAttribPointer");
+    GL::EnableVertexAttribArray = (void (*)(GLuint))SDL_GL_GetProcAddress("glEnableVertexAttribArray");
+    GL::DisableVertexAttribArray = (void (*)(GLuint))SDL_GL_GetProcAddress("glDisableVertexAttribArray");
+    GL::DrawArrays = (void (*)(GLenum, GLint, GLsizei))SDL_GL_GetProcAddress("glDrawArrays");
+}
 
 void RenderMesh(const vector<Triangle>& mesh)
 {
@@ -104,6 +129,8 @@ int main(int argc, char* argv[])
 
     SDL_GL_GetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, &major);
     SDL_GL_GetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, &minor);
+
+    LoadOpenGL3Funcs();
 
     ImGui::CreateContext();
     ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
