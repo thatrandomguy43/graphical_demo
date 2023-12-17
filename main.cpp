@@ -12,7 +12,11 @@ using namespace std;
 ofstream LOG;
 
 namespace GL {
-    
+    void (*GenBuffers)(GLsizei n, GLuint* buffers); //create buffer handle
+    void (*BindBuffer)(GLenum target, GLuint buffer); //bind buffer handle to one of the built in render bufferes (for me mostly GL_ARRAY_BUFFER)
+    void (*BufferData)(GLenum target, GLsizeiptr size, const GLvoid* data, GLenum usage); //give the specified builtin buffer actual data storage, and also filling in that data
+    void (*VertexAttribPointer)(GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const GLvoid* pointer); 
+    void (*DrawArrays)(GLenum mode, GLint first, GLsizei count);
 }
 
 
@@ -55,6 +59,7 @@ const vector<Triangle> test_triangles = {
 
 void RenderMesh(const vector<Triangle>& mesh)
 {
+
 
     glEnable(GL_DEPTH_TEST);
     println(LOG, "glEnable error number {}", glGetError());
