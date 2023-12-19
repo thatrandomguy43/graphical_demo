@@ -1,8 +1,8 @@
-#include "imgui/imgui.h"
-#include "imgui/backends/imgui_impl_opengl3.h"
-#include "imgui/backends/imgui_impl_sdl2.h"
-#include "sdl/include/SDL.h"
-#include "sdl/include/SDL_opengl.h"
+#include "../imgui/imgui.h"
+#include "../imgui/backends/imgui_impl_opengl3.h"
+#include "../imgui/backends/imgui_impl_sdl2.h"
+#include "../sdl/include/SDL.h"
+#include "../sdl/include/SDL_opengl.h"
 #include <iostream>
 #include <fstream>
 #include <chrono>
@@ -12,9 +12,11 @@ using namespace std;
 ofstream LOG;
 
 namespace GL {
-    //a VAO vertex array object stores metadata about what array each vertex attribute index (not really an array index, just an arbitrary number chosen by you) is associated with and what that array's data format is
-    //all the data is stored in the GL_ARRAY_BUFFER, so you use the metadata to interleave the multiple attribute arrays, which also seems to be required because you can't tell it when to stop reading one atttrib and start reading another
-    //since each vertex is supposed ot have one of each attribute, the interleaved arrays must be of equal length it seems 
+    //a VAO vertex array object stores metadata about what array each vertex attribute index is associated with and what that array's data format is
+    //indexes can be chosen arbitrarily between 0 and GL_MAX_VERTEX_ATTRIBS - 1, but you need to bind a name to them to use them in shaders
+    //no worries about that rn tho
+
+    //the actual data is stored inside a buffer you bind to GL_ARRAY_BUFFER, but you use GL::VertexAttribPointer to define multiple either interleaved or seperated arrays
 
     void (*GenVertexArrays)(GLsizei n, GLuint *arrays) = nullptr; //create n VAO handle and store them in the given array (i should only ever need 1)
     void (*BindVertexArray)(GLuint array) = nullptr; //make the given VAO the currently active one
@@ -29,7 +31,8 @@ namespace GL {
     void (*DrawArrays)(GLenum mode, GLint first, GLsizei count) = nullptr; //draws from the vertex attrib arrays enabled on the current VAO
 }
 
-
+GLuint VAO_HANDLE = 0;
+GLuint VERTEX_BUFFER_HANDLE = 0;
 void LayoutUI()
 {
     static bool show_demo = false;
@@ -84,18 +87,22 @@ void LoadOpenGL3Funcs()
 
 void RenderMesh(const vector<Triangle>& mesh)
 {
+    static bool has_initted_buffer = false;
 
+    if (not has_initted_buffer)
+    {
+        GL::GenVertexArrays(1, &VAO_HANDLE);
+        GL::BindVertexArray(VAO_HANDLE);
+        GL::GenBuffers(1, &VERTEX_BUFFER_HANDLE);
+        GL::BindBuffer(GL_ARRAY_BUFFER, VERTEX_BUFFER_HANDLE);
+        has_initted_buffer = true;
+    }
 
     glEnable(GL_DEPTH_TEST);
-    println(LOG, "glEnable error number {}", glGetError());
     glInterleavedArrays(GL_C3F_V3F, 0, mesh.data());
-    println(LOG, "glInterleavedArrays error number {}", glGetError());
     glDrawArrays(GL_TRIANGLES, 0, mesh.size()*3);
-    println(LOG, "glDrawArrays error number {}", glGetError());
     glDisableClientState(GL_COLOR_ARRAY);
-    println(LOG, "glDisableClientState error number {}", glGetError());
     glDisableClientState(GL_VERTEX_ARRAY);
-    println(LOG, "glDisableClientState error number {}", glGetError());
     glDisable(GL_DEPTH_TEST);
     println(LOG, "glDisable error number {}", glGetError());
 }
