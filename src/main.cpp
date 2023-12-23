@@ -6,6 +6,7 @@
 #include <iostream>
 #include <fstream>
 #include <chrono>
+#include <filesystem>
 #include "types.hpp"
 using namespace std;
 
@@ -29,10 +30,23 @@ namespace GL {
     void (*EnableVertexAttribArray)(GLuint index) = nullptr; //enable vertex arrib array on current VAO
     void (*DisableVertexAttribArray)(GLuint index) = nullptr; //disable vertex arrib array on current VAO
     void (*DrawArrays)(GLenum mode, GLint first, GLsizei count) = nullptr; //draws from the vertex attrib arrays enabled on the current VAO
+    GLuint (*CreateProgram)() = nullptr;
+    GLuint (*CreateShader)(GLenum shaderType) = nullptr;
+    void (*DeleteShader)(GLuint shader) = nullptr;
+    void (*DeleteProgram)(GLuint program) = nullptr;
+    void (*ShaderSource)(GLuint shader, GLsizei count, const GLchar **string, const GLint *length) = nullptr;
+    void (*AttachShader)(GLuint program, GLuint shader) = nullptr;
+    void (*DetachShader)(GLuint program, GLuint shader) = nullptr;
+    void (*CompileShader)(GLuint shader) = nullptr;
+    void (*GetShaderInfoLog)(GLuint shader, GLsizei maxLength, GLsizei *length, GLchar *infoLog);
+    void (*LinkProgram)(GLuint program) = nullptr;
+    void (*UseProgram)(GLuint program) = nullptr;
+
 }
 
 GLuint VAO_HANDLE = 0;
 GLuint VERTEX_BUFFER_HANDLE = 0;
+GLuint RENDER_PROGRAM_HANDLE = 0;
 void LayoutUI()
 {
     static bool show_demo = false;
@@ -83,6 +97,62 @@ void LoadOpenGL3Funcs()
     GL::EnableVertexAttribArray = (void (*)(GLuint))SDL_GL_GetProcAddress("glEnableVertexAttribArray");
     GL::DisableVertexAttribArray = (void (*)(GLuint))SDL_GL_GetProcAddress("glDisableVertexAttribArray");
     GL::DrawArrays = (void (*)(GLenum, GLint, GLsizei))SDL_GL_GetProcAddress("glDrawArrays");
+    GL::CreateProgram = (GLuint (*)())SDL_GL_GetProcAddress("glCreateProgram");
+    GL::CreateShader = (GLuint (*)(GLenum))SDL_GL_GetProcAddress("glCreateShader");
+    GL::DeleteShader = (void (*)(GLuint))SDL_GL_GetProcAddress("glDeleteShader");
+    GL::DeleteProgram = (void (*)(GLuint))SDL_GL_GetProcAddress("glDeleteProgram");
+    GL::ShaderSource = (void (*)(GLuint, GLsizei, const GLchar**, const GLint*))SDL_GL_GetProcAddress("glShaderSource");
+    GL::AttachShader = (void (*)(GLuint, GLuint))SDL_GL_GetProcAddress("glAttachShader");
+    GL::DetachShader = (void (*)(GLuint, GLuint))SDL_GL_GetProcAddress("glDetachShader");
+    GL::CompileShader = (void (*)(GLuint))SDL_GL_GetProcAddress("glCompileShader");
+    GL::LinkProgram = (void (*)(GLuint))SDL_GL_GetProcAddress("glLinkProgram");
+    GL::UseProgram = (void (*)(GLuint))SDL_GL_GetProcAddress("glUseProgram");
+}
+
+vector<string> FileToStringArray(const string& filename)
+{
+    ifstream file;
+    vector<string> out;
+    file.open(filename);
+    while (not file.eof() and not file.fail()) 
+    {
+        out.push_back("");
+        char got = '\0';
+        while (got != '\n' and not file.eof()) 
+        {
+            file.get(got);
+            if (got != '\n')
+            {
+                out.back().append(string{got});
+            }
+            
+        }
+    }
+    return out;
+}
+
+void InitOpenGLFor3D()
+{
+    LoadOpenGL3Funcs();
+
+    RENDER_PROGRAM_HANDLE = GL::CreateProgram();
+
+    vector<vector<string>> shader_sources = {FileToStringArray("./src/noop.vertex.glsl"), FileToStringArray("./src/noop.geometry.glsl"), FileToStringArray("./src/noop.fragment.glsl")};
+    vector<GLuint> shader_handles = {GL::CreateShader(GL_VERTEX_SHADER), GL::CreateShader(GL_GEOMETRY_SHADER), GL::CreateShader(GL_FRAGMENT_SHADER)};
+    for (size_t shader = 0; shader < shader_sources.size() and shader < shader_handles.size(); shader++)
+    {
+    vector<GLint> code_line_sizes;
+    vector<const char*> code_line_c_strs;
+    for (auto line : shader_sources[shader])
+    {
+        code_line_sizes.push_back(line.size());
+        code_line_c_strs.push_back(line.c_str());
+    }
+    GL::ShaderSource(shader_handles[shader], shader_sources[shader].size(), code_line_c_strs.data(), code_line_sizes.data());
+    }
+
+
+
 }
 
 void RenderMesh(const vector<Triangle>& mesh)
@@ -98,13 +168,6 @@ void RenderMesh(const vector<Triangle>& mesh)
         has_initted_buffer = true;
     }
 
-    glEnable(GL_DEPTH_TEST);
-    glInterleavedArrays(GL_C3F_V3F, 0, mesh.data());
-    glDrawArrays(GL_TRIANGLES, 0, mesh.size()*3);
-    glDisableClientState(GL_COLOR_ARRAY);
-    glDisableClientState(GL_VERTEX_ARRAY);
-    glDisable(GL_DEPTH_TEST);
-    println(LOG, "glDisable error number {}", glGetError());
 }
 
 int main(int argc, char* argv[])
@@ -137,7 +200,7 @@ int main(int argc, char* argv[])
     SDL_GL_GetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, &major);
     SDL_GL_GetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, &minor);
 
-    LoadOpenGL3Funcs();
+    InitOpenGLFor3D();
 
     ImGui::CreateContext();
     ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
