@@ -3,9 +3,9 @@
 #include "../imgui/backends/imgui_impl_sdl2.h"
 #include "../sdl/include/SDL.h"
 #include "../sdl/include/SDL_opengl.h"
+#include "../glm/ext.hpp"
 #include <iostream>
 #include <fstream>
-#include <chrono>
 #include <filesystem>
 #include "types.hpp"
 using namespace std;
@@ -18,7 +18,11 @@ namespace GL {
     //no worries about that rn tho
 
     //the actual data is stored inside a buffer you bind to GL_ARRAY_BUFFER, but you use GL::VertexAttribPointer to define multiple either interleaved or seperated arrays
-
+    GLenum (*GetError)() = nullptr;
+    void (*Enable)(GLenum cap) = nullptr;
+    void (*Disable)(GLenum cap) = nullptr;
+    void (*Clear)(GLbitfield mask) = nullptr;
+    void (*Viewport)(GLint x, GLint y, GLsizei width, GLsizei height) = nullptr;
     void (*GenVertexArrays)(GLsizei n, GLuint *arrays) = nullptr; //create n VAO handle and store them in the given array (i should only ever need 1)
     void (*BindVertexArray)(GLuint array) = nullptr; //make the given VAO the currently active one
     void (*DeleteVertexArrays)(GLsizei n, const GLuint *arrays) = nullptr; //delete the n VAOs specified in the given array
@@ -38,15 +42,25 @@ namespace GL {
     void (*AttachShader)(GLuint program, GLuint shader) = nullptr;
     void (*DetachShader)(GLuint program, GLuint shader) = nullptr;
     void (*CompileShader)(GLuint shader) = nullptr;
-    void (*GetShaderInfoLog)(GLuint shader, GLsizei maxLength, GLsizei *length, GLchar *infoLog);
+    void (*GetShaderiv)(GLuint shader, GLenum pname, GLint *params) = nullptr;
+    void (*GetShaderInfoLog)(GLuint shader, GLsizei maxLength, GLsizei *length, GLchar *infoLog) = nullptr;
+    void (*GetProgramiv)(GLuint shader, GLenum pname, GLint *params) = nullptr;
+    void (*GetProgramInfoLog)(GLuint shader, GLsizei maxLength, GLsizei *length, GLchar *infoLog) = nullptr;
     void (*LinkProgram)(GLuint program) = nullptr;
     void (*UseProgram)(GLuint program) = nullptr;
-
+    GLint (*GetUniformLocation)(GLuint program, const GLchar* name) = nullptr;
+    void (*UniformMatrix4fv)(GLint location, GLsizei count, GLboolean transpose, const GLfloat* value) = nullptr;
 }
 
 GLuint VAO_HANDLE = 0;
 GLuint VERTEX_BUFFER_HANDLE = 0;
 GLuint RENDER_PROGRAM_HANDLE = 0;
+const GLuint POSITION_ATTRIB_INDEX = 0;
+const GLuint COLOR_ATTRIB_INDEX = 1;
+GLuint MODEL_UNIFORM_INDEX;
+GLuint VIEW_UNIFORM_INDEX;
+GLuint PROJECTION_UNIFORM_INDEX;
+
 void LayoutUI()
 {
     static bool show_demo = false;
@@ -71,21 +85,16 @@ void LayoutUI()
 
 }
 
-const vector<Triangle> test_triangles = {
-    Triangle{
-    Vertex3D{ RGBColor{1.0, 0.5, 0}, Point3D{-1.0,-1.0,0.0,},},
-    Vertex3D{ RGBColor{1.0, 0.5, 0}, Point3D{-0.5,1.0,0.5,},},
-    Vertex3D{ RGBColor{1.0, 0.5, 0}, Point3D{0.5,0.0,1.0,},}
-    }, Triangle{
-    Vertex3D{ RGBColor{1.0, 0, 0,}, Point3D{-0.5,0.5,0.75,},},
-    Vertex3D{ RGBColor{0, 1.0, 0,}, Point3D{0.5,-0.5,0.75,},},
-    Vertex3D{ RGBColor{0, 0, 1.0,}, Point3D{-0.5,-0.5, 0.75,},}
-    }
-};
+const vector<Triangle> test_triangles = {};
 
 
-void LoadOpenGL3Funcs()
+void LoadOpenGLFuncs()
 {
+    GL::GetError = (GLenum (*)())SDL_GL_GetProcAddress("glGetError");
+    GL::Enable = (void (*)(GLenum))SDL_GL_GetProcAddress("glEnable");
+    GL::Disable = (void (*)(GLenum))SDL_GL_GetProcAddress("glDisable");
+    GL::Clear = (void (*)(GLbitfield))SDL_GL_GetProcAddress("glClear");
+    GL::Viewport = (void (*)(GLint, GLint, GLsizei, GLsizei))SDL_GL_GetProcAddress("glViewport");
     GL::GenVertexArrays = (void (*)(GLsizei, GLuint*))SDL_GL_GetProcAddress("glGenVertexArrays");
     GL::BindVertexArray = (void (*)(GLuint))SDL_GL_GetProcAddress("glBindVertexArray");
     GL::DeleteVertexArrays = (void (*)(GLsizei, const GLuint*))SDL_GL_GetProcAddress("glDeleteVertexArrays");
@@ -105,70 +114,129 @@ void LoadOpenGL3Funcs()
     GL::AttachShader = (void (*)(GLuint, GLuint))SDL_GL_GetProcAddress("glAttachShader");
     GL::DetachShader = (void (*)(GLuint, GLuint))SDL_GL_GetProcAddress("glDetachShader");
     GL::CompileShader = (void (*)(GLuint))SDL_GL_GetProcAddress("glCompileShader");
+    GL::GetShaderiv = (void (*)(GLuint, GLenum, GLint*))SDL_GL_GetProcAddress("glGetShaderiv");
+    GL::GetShaderInfoLog = (void (*)(GLuint, GLsizei, GLsizei*, GLchar*))SDL_GL_GetProcAddress("glGetShaderInfoLog");
+    GL::GetProgramiv = (void (*)(GLuint, GLenum, GLint*))SDL_GL_GetProcAddress("glGetProgramiv");
+    GL::GetProgramInfoLog = (void (*)(GLuint, GLsizei, GLsizei*, GLchar*))SDL_GL_GetProcAddress("glGetProgramInfoLog");
     GL::LinkProgram = (void (*)(GLuint))SDL_GL_GetProcAddress("glLinkProgram");
     GL::UseProgram = (void (*)(GLuint))SDL_GL_GetProcAddress("glUseProgram");
+    GL::GetUniformLocation = (GLint (*)(GLuint, const GLchar*))SDL_GL_GetProcAddress("glGetUniformLocation");
+    GL::UniformMatrix4fv = (void (*)(GLint, GLsizei, GLboolean, const GLfloat*))SDL_GL_GetProcAddress("glUniformMatrix4fv");
+
 }
 
-vector<string> FileToStringArray(const string& filename)
+string FileToString(const string& filename)
 {
     ifstream file;
-    vector<string> out;
+    string out;
     file.open(filename);
     while (not file.eof() and not file.fail()) 
     {
-        out.push_back("");
-        char got = '\0';
-        while (got != '\n' and not file.eof()) 
-        {
-            file.get(got);
-            if (got != '\n')
-            {
-                out.back().append(string{got});
-            }
-            
-        }
+        char got;
+        file.get(got);
+        out.append(string{got});
     }
     return out;
 }
 
-void InitOpenGLFor3D()
+void InitOpenGLFor3D(vector<ShaderFile> shaders_to_load)
 {
-    LoadOpenGL3Funcs();
+    LoadOpenGLFuncs();
 
     RENDER_PROGRAM_HANDLE = GL::CreateProgram();
 
-    vector<vector<string>> shader_sources = {FileToStringArray("./src/noop.vertex.glsl"), FileToStringArray("./src/noop.geometry.glsl"), FileToStringArray("./src/noop.fragment.glsl")};
-    vector<GLuint> shader_handles = {GL::CreateShader(GL_VERTEX_SHADER), GL::CreateShader(GL_GEOMETRY_SHADER), GL::CreateShader(GL_FRAGMENT_SHADER)};
-    for (size_t shader = 0; shader < shader_sources.size() and shader < shader_handles.size(); shader++)
+    vector<GLuint> shader_handles;
+    for (auto& shader : shaders_to_load)
     {
-    vector<GLint> code_line_sizes;
-    vector<const char*> code_line_c_strs;
-    for (auto line : shader_sources[shader])
+        string source = FileToString(shader.filename);
+        source.push_back('\n');
+        const char* source_c_str = source.c_str();
+        GLuint current_shader_handle = GL::CreateShader(shader.type);
+        shader_handles.push_back(current_shader_handle);
+        GL::ShaderSource(current_shader_handle, 1, &source_c_str, nullptr);
+        GL::CompileShader(current_shader_handle);
+        string compile_log;
+        GLint log_size;
+        GL::GetShaderiv(current_shader_handle, GL_INFO_LOG_LENGTH, &log_size);
+        compile_log.resize(log_size);
+        GL::GetShaderInfoLog(current_shader_handle, log_size, nullptr, compile_log.data());
+        if (not compile_log.empty() and compile_log.back() == '\0') 
+        {
+            compile_log.pop_back();
+        }
+        println(LOG, "compile log for {}: {}", shader.filename, compile_log);
+        GL::AttachShader(RENDER_PROGRAM_HANDLE, current_shader_handle);
+    }
+    GL::LinkProgram(RENDER_PROGRAM_HANDLE);
+    string link_log;
+    GLint log_size;
+    GL::GetProgramiv(RENDER_PROGRAM_HANDLE, GL_INFO_LOG_LENGTH, &log_size);
+    link_log.resize(log_size);
+    GL::GetProgramInfoLog(RENDER_PROGRAM_HANDLE, log_size, nullptr, link_log.data());
+    if (not link_log.empty() and link_log.back() == '\0') 
     {
-        code_line_sizes.push_back(line.size());
-        code_line_c_strs.push_back(line.c_str());
+        link_log.pop_back();
     }
-    GL::ShaderSource(shader_handles[shader], shader_sources[shader].size(), code_line_c_strs.data(), code_line_sizes.data());
+    println(LOG, "link log for render program: {}", link_log);
+    GL::UseProgram(RENDER_PROGRAM_HANDLE);
+    MODEL_UNIFORM_INDEX = GL::GetUniformLocation(RENDER_PROGRAM_HANDLE, "MODEL");
+    VIEW_UNIFORM_INDEX = GL::GetUniformLocation(RENDER_PROGRAM_HANDLE, "VIEW");
+    PROJECTION_UNIFORM_INDEX = GL::GetUniformLocation(RENDER_PROGRAM_HANDLE, "PROJECTION");
+    GL::GenVertexArrays(1, &VAO_HANDLE);
+    GL::BindVertexArray(VAO_HANDLE);
+    GL::GenBuffers(1, &VERTEX_BUFFER_HANDLE);
+    GL::BindBuffer(GL_ARRAY_BUFFER, VERTEX_BUFFER_HANDLE);
+    GL::VertexAttribPointer(POSITION_ATTRIB_INDEX, 3, GL_FLOAT, true, sizeof(Vertex3D), 0);
+    GL::VertexAttribPointer(COLOR_ATTRIB_INDEX, 4, GL_FLOAT, true, sizeof(Vertex3D), (void*)sizeof(glm::vec3));
+    GL::EnableVertexAttribArray(POSITION_ATTRIB_INDEX);
+    GL::EnableVertexAttribArray(COLOR_ATTRIB_INDEX);
+    
+}
+
+vector<Triangle> EmulateShaderRendering(const Object3D& object, const glm::mat4& view, const glm::mat4& projection)
+{
+    vector<Triangle> out;
+    glm::mat4 model = glm::identity<glm::mat4>();
+    model = glm::scale(model, object.scale);
+    model = glm::rotate(model, object.angle, object.axis);
+    model = glm::translate(model, object.pos);
+    for (const Triangle& tri : object.mesh)
+    {
+        out.push_back({});
+        out.back().points[0].pos = projection * view * model * glm::vec4(tri.points[0].pos, 1.0);
+        
+        out.back().points[1].pos = projection * view * model * glm::vec4(tri.points[1].pos, 1.0);
+        
+        out.back().points[2].pos = projection * view * model * glm::vec4(tri.points[2].pos, 1.0);
     }
-
-
-
+    return out;
 }
 
 void RenderMesh(const vector<Triangle>& mesh)
 {
-    static bool has_initted_buffer = false;
-
-    if (not has_initted_buffer)
-    {
-        GL::GenVertexArrays(1, &VAO_HANDLE);
-        GL::BindVertexArray(VAO_HANDLE);
-        GL::GenBuffers(1, &VERTEX_BUFFER_HANDLE);
-        GL::BindBuffer(GL_ARRAY_BUFFER, VERTEX_BUFFER_HANDLE);
-        has_initted_buffer = true;
-    }
-
+    GL::BufferData(GL_ARRAY_BUFFER, mesh.size()*sizeof(Triangle), mesh.data(), GL_STREAM_DRAW);
+    GL::Enable(GL_DEPTH_TEST);
+    GL::DrawArrays(GL_TRIANGLES, 0, mesh.size()*3);
+    GL::Disable(GL_DEPTH_TEST);
 }
+
+void RenderObjects(const vector<Object3D>& objects, const glm::mat4& view, const glm::mat4& projection)
+{
+    GL::UniformMatrix4fv(VIEW_UNIFORM_INDEX, 1, false, &view[0][0]);
+    GL::UniformMatrix4fv(PROJECTION_UNIFORM_INDEX, 1, false, &projection[0][0]);
+    
+    for (const Object3D& obj : objects)
+    {
+        glm::mat4 model = glm::identity<glm::mat4>();
+        model = glm::scale(model, obj.scale);
+        model = glm::rotate(model, obj.angle, obj.axis);
+        model = glm::translate(model, obj.pos);
+        GL::UniformMatrix4fv(MODEL_UNIFORM_INDEX, 1, false, &model[0][0]);
+        RenderMesh(obj.mesh);
+    }
+}
+
+
 
 int main(int argc, char* argv[])
 {
@@ -185,8 +253,8 @@ int main(int argc, char* argv[])
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
     SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 5);
 
     SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
     SDL_Window* window = SDL_CreateWindow("hopefully you can read this", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720, window_flags);
@@ -194,13 +262,8 @@ int main(int argc, char* argv[])
     SDL_GL_MakeCurrent(window, opengl_context);
     SDL_GL_SetSwapInterval(1); // Enable vsync
 
-    int minor, major;
 
-
-    SDL_GL_GetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, &major);
-    SDL_GL_GetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, &minor);
-
-    InitOpenGLFor3D();
+    InitOpenGLFor3D({{"src/mvp.vertex.glsl", GL_VERTEX_SHADER}, {"src/noop.fragment.glsl", GL_FRAGMENT_SHADER}});
 
     ImGui::CreateContext();
     ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
@@ -229,10 +292,11 @@ int main(int argc, char* argv[])
 
         LayoutUI();
         ImGui::Render();
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        glViewport(0, 0, 1280, 720);
+        GL::Clear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        GL::Viewport(0, 0, 1280, 720);
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-        RenderMesh(test_triangles);
+        //vector<Triangle> results_hopefully = EmulateShaderRendering(Object3D{test_triangles, {0, 0, 0}}, glm::lookAt<float>(glm::vec3{0.0f, 0.0f, -0.5f}, glm::vec3{0.0f, 0.0f, 0.0f}, glm::vec3{0.0f, 1.0f, 0.0f}), glm::infinitePerspective<float>(glm::radians<float>(90), 16.0f/9.0f, 0.5));
+        RenderObjects({Object3D{test_triangles, {0, 0, 0}}}, glm::lookAt<float>(glm::vec3{0.5f, 0.5f, 0.5f}, glm::vec3{0.0f, 0.0f, 0.0f}, glm::vec3{0.0f, 0.0f, 1.0f}), glm::infinitePerspective<float>(glm::radians<float>(90), 16.0f/9.0f, 1));
         SDL_GL_SwapWindow(window);
     }
 

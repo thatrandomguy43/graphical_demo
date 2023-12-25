@@ -1,0 +1,38 @@
+<?xml version="1.0"?>
+<project version="2">
+	<pipeline>
+		<pass name="only pass" type="shader" active="true" patchverts="1">
+			<shader type="vs" path="src\mvp.vertex.glsl" entry="main" />
+			<shader type="ps" path="src\noop.fragment.glsl" entry="main" />
+			<inputlayout>
+				<item value="Position" semantic="POSITION" />
+				<item value="Normal" semantic="NORMAL" />
+				<item value="Texcoord" semantic="TEXCOORD0" />
+			</inputlayout>
+			<rendertexture />
+			<items />
+			<itemvalues />
+			<variables>
+				<variable type="float4x4" name="PROJECTION" system="Projection" />
+				<variable type="float4x4" name="VIEW" system="View" />
+				<variable type="float4x4" name="MODEL" system="GeometryTransform" />
+			</variables>
+			<macros />
+		</pass>
+	</pipeline>
+	<objects />
+	<cameras />
+	<settings>
+		<entry type="file" name="only pass" shader="vs" />
+		<entry type="file" name="only pass" shader="ps" />
+		<entry type="camera" fp="false">
+			<distance>4</distance>
+			<pitch>28</pitch>
+			<yaw>317</yaw>
+			<roll>360</roll>
+		</entry>
+		<entry type="clearcolor" r="0" g="0" b="0" a="0" />
+		<entry type="usealpha" val="false" />
+	</settings>
+	<plugindata />
+</project>

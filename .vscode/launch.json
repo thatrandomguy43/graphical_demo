@@ -1,6 +1,13 @@
 {
     "configurations": [
         {
+            "type": "shadered",
+            "request": "launch",
+            "name": "Shader debug",
+            "program": "${workspaceFolder}/demo.sprj",
+            "stopOnEntry": true
+        },
+        {
             "name": "(Windows) Launch",
             "type": "cppvsdbg",
             "request": "launch",
