@@ -13,13 +13,15 @@ class ShaderFile
 class Vertex3D
 {
     public:
-    glm::vec3 pos;
-    glm::vec4 color;
+    glm::vec3 pos = {0, 0, 0};
+    glm::vec4 color = {0, 0, 0, 0};
+    Vertex3D() = default;
+    Vertex3D(glm::vec3 p) : pos(p){}
 };
 class Triangle
 {
     public:
-    std::array<Vertex3D, 3> points;
+    std::array<Vertex3D, 3> points = {};
 };
 class Object3D
 {

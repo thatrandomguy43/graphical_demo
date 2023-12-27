@@ -61,7 +61,16 @@ GLuint MODEL_UNIFORM_INDEX;
 GLuint VIEW_UNIFORM_INDEX;
 GLuint PROJECTION_UNIFORM_INDEX;
 
-void LayoutUI()
+class CubeOptions 
+{
+    public:
+    float angle;
+    glm::vec3 pos;
+    glm::vec3 axis;
+    glm::vec3 scale;
+};
+
+CubeOptions LayoutUI()
 {
     static bool show_demo = false;
     if (ImGui::IsKeyPressed(ImGuiKey_D))
@@ -71,21 +80,77 @@ void LayoutUI()
     if (show_demo) {
         ImGui::ShowDemoWindow();
     } 
-    ImGui::Begin("epic ass window");
-    ImGui::Button("press", {50, 50});
-    if (ImGui::IsItemActive())
+
+    ImGui::Begin("cube options");
+    CubeOptions opt;
+    static bool first_frame = true;
+    if (first_frame)
     {
-        ImGui::Text("pressing");
+        first_frame = false;
+        opt.angle = 0;
+        opt.axis = {0, 1, 0};
+        opt.scale = {1, 1, 1};
+        opt.pos = {0, 0, -3};
     }
-    else 
-    {
-        ImGui::Text("not pressing");
-    }
+    ImGui::SliderFloat3("Position", &opt.pos.x, -5, 5);
+    ImGui::SliderFloat3("Scale", &opt.scale.x, 0, 4);
+    ImGui::SliderFloat3("Axis of rotation", &opt.axis.x, 0, 1);
+    ImGui::SliderAngle("Angle", &opt.angle, 0, 360);
     ImGui::End();
-
+    return opt;
 }
+//i hate that i have to write this code but like 6 layers of nested initializers is impossible to write
+vector<Triangle> GenCube()
+{
+    const vector<glm::vec4> colors = {
+        {1, 0, 0, 1}, {1, 0, 0, 1},
+        {1, 1, 0, 1}, {1, 1, 0, 1},
+        {1, 0, 1, 1}, {1, 0, 1, 1},
+        {0, 1, 0, 1}, {0, 1, 0, 1},
+        {0, 1, 1, 1}, {0, 1, 1, 1},
+        {0, 0, 1, 1}, {0, 0, 1, 1}
+        };
+    vector<Triangle> cube = {
+        {Vertex3D{{-1, -1, -1}}, {{-1, 1, -1}}, {{-1, 1, 1}}}, 
+        {Vertex3D{{-1, -1, -1}}, {{-1, -1, 1}}, {{-1, 1, 1}}}
+    };
+    cube.resize(12);
 
-const vector<Triangle> test_triangles = {};
+    for (int i = 2; i < cube.size(); i += 2)
+    {
+        cube[i] = cube[0];
+        cube[i+1] = cube[1];
+    }
+    for (int i = 0; i < cube.size(); i++)
+    {
+        for (Vertex3D& pt : cube[i].points)
+        {
+            pt.color = colors[i];
+        } 
+        if (i % 4 == 2 or i % 4 == 3) 
+        {
+            for (Vertex3D& pt : cube[i].points)
+            {
+                pt.pos.x = 1;
+            } 
+        }
+        if (i >= 4 and i < 8) 
+        {
+            for (Vertex3D& pt : cube[i].points)
+            {
+                pt.pos = {pt.pos.y, pt.pos.z, pt.pos.x};
+            } 
+        }
+        else if (i >= 8)
+        {
+            for (Vertex3D& pt : cube[i].points)
+            {
+                pt.pos = {pt.pos.z, pt.pos.x, pt.pos.y};
+            } 
+        }
+    }
+    return cube;
+}
 
 
 void LoadOpenGLFuncs()
@@ -193,24 +258,6 @@ void InitOpenGLFor3D(vector<ShaderFile> shaders_to_load)
     
 }
 
-vector<Triangle> EmulateShaderRendering(const Object3D& object, const glm::mat4& view, const glm::mat4& projection)
-{
-    vector<Triangle> out;
-    glm::mat4 model = glm::identity<glm::mat4>();
-    model = glm::scale(model, object.scale);
-    model = glm::rotate(model, object.angle, object.axis);
-    model = glm::translate(model, object.pos);
-    for (const Triangle& tri : object.mesh)
-    {
-        out.push_back({});
-        out.back().points[0].pos = projection * view * model * glm::vec4(tri.points[0].pos, 1.0);
-        
-        out.back().points[1].pos = projection * view * model * glm::vec4(tri.points[1].pos, 1.0);
-        
-        out.back().points[2].pos = projection * view * model * glm::vec4(tri.points[2].pos, 1.0);
-    }
-    return out;
-}
 
 void RenderMesh(const vector<Triangle>& mesh)
 {
@@ -220,23 +267,22 @@ void RenderMesh(const vector<Triangle>& mesh)
     GL::Disable(GL_DEPTH_TEST);
 }
 
-void RenderObjects(const vector<Object3D>& objects, const glm::mat4& view, const glm::mat4& projection)
+void RenderObjects(const vector<Object3D>& objects, const glm::mat4& view, const glm::mat4& perspective)
 {
     GL::UniformMatrix4fv(VIEW_UNIFORM_INDEX, 1, false, &view[0][0]);
-    GL::UniformMatrix4fv(PROJECTION_UNIFORM_INDEX, 1, false, &projection[0][0]);
+    GL::UniformMatrix4fv(PROJECTION_UNIFORM_INDEX, 1, false, &perspective[0][0]);
     
     for (const Object3D& obj : objects)
     {
+        //whoever decided that transformations should put the input on the LEFT, thus requiring the transformations in the OPPOSITE ORDER THAN WHAT EVERYONE SAYS TO DO can go fuck themselves
         glm::mat4 model = glm::identity<glm::mat4>();
+        model = glm::translate(model, obj.pos);
         model = glm::scale(model, obj.scale);
         model = glm::rotate(model, obj.angle, obj.axis);
-        model = glm::translate(model, obj.pos);
         GL::UniformMatrix4fv(MODEL_UNIFORM_INDEX, 1, false, &model[0][0]);
         RenderMesh(obj.mesh);
     }
 }
-
-
 
 int main(int argc, char* argv[])
 {
@@ -263,7 +309,7 @@ int main(int argc, char* argv[])
     SDL_GL_SetSwapInterval(1); // Enable vsync
 
 
-    InitOpenGLFor3D({{"src/mvp.vertex.glsl", GL_VERTEX_SHADER}, {"src/noop.fragment.glsl", GL_FRAGMENT_SHADER}});
+    InitOpenGLFor3D({{"src/mvp.vert.glsl", GL_VERTEX_SHADER}, {"src/noop.frag.glsl", GL_FRAGMENT_SHADER}});
 
     ImGui::CreateContext();
     ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
@@ -290,13 +336,17 @@ int main(int argc, char* argv[])
         ImGui::NewFrame();
         
 
-        LayoutUI();
+        CubeOptions options = LayoutUI();
         ImGui::Render();
+        int window_width, window_height;
+        SDL_GL_GetDrawableSize(window, &window_width, &window_height);
         GL::Clear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        GL::Viewport(0, 0, 1280, 720);
+        GL::Viewport(0, 0, window_width, window_height);
+        Object3D cube = {Object3D{GenCube(), options.pos, options.axis, options.angle, options.scale}};
+        glm::mat4 view = glm::lookAt<float>(glm::vec3{0, 0, 0}, glm::vec3{0, 0, -1}, glm::vec3{0.0, 1.0, 0.0});
+        glm::mat4 perspective = glm::perspective<float>(glm::radians<float>(70), static_cast<float>(window_width)/static_cast<float>(window_height), 0.25, 100);
+        RenderObjects({cube}, view, perspective);
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-        //vector<Triangle> results_hopefully = EmulateShaderRendering(Object3D{test_triangles, {0, 0, 0}}, glm::lookAt<float>(glm::vec3{0.0f, 0.0f, -0.5f}, glm::vec3{0.0f, 0.0f, 0.0f}, glm::vec3{0.0f, 1.0f, 0.0f}), glm::infinitePerspective<float>(glm::radians<float>(90), 16.0f/9.0f, 0.5));
-        RenderObjects({Object3D{test_triangles, {0, 0, 0}}}, glm::lookAt<float>(glm::vec3{0.5f, 0.5f, 0.5f}, glm::vec3{0.0f, 0.0f, 0.0f}, glm::vec3{0.0f, 0.0f, 1.0f}), glm::infinitePerspective<float>(glm::radians<float>(90), 16.0f/9.0f, 1));
         SDL_GL_SwapWindow(window);
     }
 
