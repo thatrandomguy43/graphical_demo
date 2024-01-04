@@ -1,12 +1,12 @@
 #include "../imgui/imgui.h"
 #include "../imgui/backends/imgui_impl_opengl3.h"
 #include "../imgui/backends/imgui_impl_sdl2.h"
-#include "../sdl/include/SDL.h"
 #include "../sdl/include/SDL_opengl.h"
 #include "../glm/ext.hpp"
 #include <iostream>
 #include <fstream>
 #include <filesystem>
+#include <unordered_map>
 #include "types.hpp"
 using namespace std;
 
@@ -52,14 +52,26 @@ namespace GL {
     void (*UniformMatrix4fv)(GLint location, GLsizei count, GLboolean transpose, const GLfloat* value) = nullptr;
 }
 
+
+
+const GLuint POSITION_ATTRIB_INDEX = 0;
+const GLuint TEXCOORDS_ATTRIB_INDEX = 1;
+const unordered_map<TextureID, const char*> TEXTURE_PATHS
+{
+    {TEXTURE_TESTGRID, "textures/testgrid.bmp"}
+};
+
 GLuint VAO_HANDLE = 0;
 GLuint VERTEX_BUFFER_HANDLE = 0;
 GLuint RENDER_PROGRAM_HANDLE = 0;
-const GLuint POSITION_ATTRIB_INDEX = 0;
-const GLuint COLOR_ATTRIB_INDEX = 1;
+
+unordered_map<TextureID, GLuint> TEXTURE_HANDLES;
+
 GLuint MODEL_UNIFORM_INDEX;
 GLuint VIEW_UNIFORM_INDEX;
 GLuint PROJECTION_UNIFORM_INDEX;
+
+using UniPtrSDLSurface = unique_ptr<SDL_Surface, SDLSurfaceDeleter>;
 
 class CubeOptions 
 {
@@ -102,17 +114,9 @@ CubeOptions LayoutUI()
 //i hate that i have to write this code but like 6 layers of nested initializers is impossible to write
 vector<Triangle> GenCube()
 {
-    const vector<glm::vec4> colors = {
-        {1, 0, 0, 1}, {1, 0, 0, 1},
-        {1, 1, 0, 1}, {1, 1, 0, 1},
-        {1, 0, 1, 1}, {1, 0, 1, 1},
-        {0, 1, 0, 1}, {0, 1, 0, 1},
-        {0, 1, 1, 1}, {0, 1, 1, 1},
-        {0, 0, 1, 1}, {0, 0, 1, 1}
-        };
     vector<Triangle> cube = {
-        {Vertex3D{{-1, -1, -1}}, {{-1, 1, -1}}, {{-1, 1, 1}}}, 
-        {Vertex3D{{-1, -1, -1}}, {{-1, -1, 1}}, {{-1, 1, 1}}}
+        {array<glm::vec3, 3>{glm::vec3{-1, -1, -1}, glm::vec3{-1, 1, -1}, glm::vec3{-1, 1, 1}}}, 
+        {array<glm::vec3, 3>{glm::vec3{-1, -1, -1}, glm::vec3{-1, -1, 1}, glm::vec3{-1, 1, 1}}}
     };
     cube.resize(12);
 
@@ -123,29 +127,25 @@ vector<Triangle> GenCube()
     }
     for (int i = 0; i < cube.size(); i++)
     {
-        for (Vertex3D& pt : cube[i].points)
-        {
-            pt.color = colors[i];
-        } 
         if (i % 4 == 2 or i % 4 == 3) 
         {
-            for (Vertex3D& pt : cube[i].points)
+            for (glm::vec3& pt : cube[i].points)
             {
-                pt.pos.x = 1;
+                pt.x = 1;
             } 
         }
         if (i >= 4 and i < 8) 
         {
-            for (Vertex3D& pt : cube[i].points)
+            for (glm::vec3& pt : cube[i].points)
             {
-                pt.pos = {pt.pos.y, pt.pos.z, pt.pos.x};
+                pt = {pt.y, pt.z, pt.x};
             } 
         }
         else if (i >= 8)
         {
-            for (Vertex3D& pt : cube[i].points)
+            for (glm::vec3& pt : cube[i].points)
             {
-                pt.pos = {pt.pos.z, pt.pos.x, pt.pos.y};
+                pt = {pt.z, pt.x, pt.y};
             } 
         }
     }
@@ -190,6 +190,7 @@ void LoadOpenGLFuncs()
 
 }
 
+
 string FileToString(const string& filename)
 {
     ifstream file;
@@ -204,33 +205,41 @@ string FileToString(const string& filename)
     return out;
 }
 
+void AddShaderToProgram(const ShaderFile& shader)
+{
+    string source = FileToString(shader.filename);
+    source.push_back('\n');
+    const char* source_c_str = source.c_str();
+    GLuint shader_handle = GL::CreateShader(shader.type);
+    GL::ShaderSource(shader_handle, 1, &source_c_str, nullptr);
+    GL::CompileShader(shader_handle);
+    string compile_log;
+    GLint log_size;
+    GL::GetShaderiv(shader_handle, GL_INFO_LOG_LENGTH, &log_size);
+    compile_log.resize(log_size);
+    GL::GetShaderInfoLog(shader_handle, log_size, nullptr, compile_log.data());
+    if (not compile_log.empty() and compile_log.back() == '\0') 
+    {
+        compile_log.pop_back();
+    }
+    println(LOG, "compile log for {}: {}", shader.filename, compile_log);
+    GL::AttachShader(RENDER_PROGRAM_HANDLE, shader_handle);
+}
+
+void CreateAllTextures()
+{
+    
+}
+
 void InitOpenGLFor3D(vector<ShaderFile> shaders_to_load)
 {
     LoadOpenGLFuncs();
 
     RENDER_PROGRAM_HANDLE = GL::CreateProgram();
 
-    vector<GLuint> shader_handles;
     for (auto& shader : shaders_to_load)
     {
-        string source = FileToString(shader.filename);
-        source.push_back('\n');
-        const char* source_c_str = source.c_str();
-        GLuint current_shader_handle = GL::CreateShader(shader.type);
-        shader_handles.push_back(current_shader_handle);
-        GL::ShaderSource(current_shader_handle, 1, &source_c_str, nullptr);
-        GL::CompileShader(current_shader_handle);
-        string compile_log;
-        GLint log_size;
-        GL::GetShaderiv(current_shader_handle, GL_INFO_LOG_LENGTH, &log_size);
-        compile_log.resize(log_size);
-        GL::GetShaderInfoLog(current_shader_handle, log_size, nullptr, compile_log.data());
-        if (not compile_log.empty() and compile_log.back() == '\0') 
-        {
-            compile_log.pop_back();
-        }
-        println(LOG, "compile log for {}: {}", shader.filename, compile_log);
-        GL::AttachShader(RENDER_PROGRAM_HANDLE, current_shader_handle);
+        AddShaderToProgram(shader);
     }
     GL::LinkProgram(RENDER_PROGRAM_HANDLE);
     string link_log;
@@ -251,10 +260,10 @@ void InitOpenGLFor3D(vector<ShaderFile> shaders_to_load)
     GL::BindVertexArray(VAO_HANDLE);
     GL::GenBuffers(1, &VERTEX_BUFFER_HANDLE);
     GL::BindBuffer(GL_ARRAY_BUFFER, VERTEX_BUFFER_HANDLE);
-    GL::VertexAttribPointer(POSITION_ATTRIB_INDEX, 3, GL_FLOAT, true, sizeof(Vertex3D), 0);
-    GL::VertexAttribPointer(COLOR_ATTRIB_INDEX, 4, GL_FLOAT, true, sizeof(Vertex3D), (void*)sizeof(glm::vec3));
+    GL::VertexAttribPointer(POSITION_ATTRIB_INDEX, 3, GL_FLOAT, true, sizeof(glm::vec3), 0);
+    GL::VertexAttribPointer(TEXCOORDS_ATTRIB_INDEX, 2, GL_FLOAT, true, sizeof(glm::vec2), (void*)sizeof(glm::vec3));
     GL::EnableVertexAttribArray(POSITION_ATTRIB_INDEX);
-    GL::EnableVertexAttribArray(COLOR_ATTRIB_INDEX);
+    GL::EnableVertexAttribArray(TEXCOORDS_ATTRIB_INDEX);
     
 }
 
@@ -284,6 +293,8 @@ void RenderObjects(const vector<Object3D>& objects, const glm::mat4& view, const
     }
 }
 
+
+
 int main(int argc, char* argv[])
 {
     LOG.open("./guiapp_log.txt", ios::out);
@@ -309,7 +320,7 @@ int main(int argc, char* argv[])
     SDL_GL_SetSwapInterval(1); // Enable vsync
 
 
-    InitOpenGLFor3D({{"src/mvp.vert.glsl", GL_VERTEX_SHADER}, {"src/noop.frag.glsl", GL_FRAGMENT_SHADER}});
+    InitOpenGLFor3D({{"src/mvp+tex.vert.glsl", GL_VERTEX_SHADER}, {"src/noop.frag.glsl", GL_FRAGMENT_SHADER}});
 
     ImGui::CreateContext();
     ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
