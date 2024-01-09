@@ -39,3 +39,5 @@
 guiapp_log.txt
 # compile_commands.json requires absolute paths
 compile_commands.json
+# clangd cache
+.cache
