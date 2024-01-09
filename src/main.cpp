@@ -342,6 +342,7 @@ int main(int argc, char* argv[])
                 break;
             }
         }
+    
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplSDL2_NewFrame();
         ImGui::NewFrame();

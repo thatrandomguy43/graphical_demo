@@ -1,0 +1,47 @@
+[
+    {
+        "directory": ".",
+        "command": "clang -g -std=c++2b, -Wall src/main.cpp",
+        "file": "src/main.cpp"
+    },
+    {
+        "directory": ".",
+        "command": "clang -g -std=c++2b, -Wall imgui/imgui.cpp",
+        "file": "imgui/imgui.cpp"
+    },
+    {
+        "directory": ".",
+        "command": "clang -g -std=c++2b, -Wall imgui/imgui_demo.cpp",
+        "file": "imgui/imgui_demo.cpp"
+    },
+    {
+        "directory": ".",
+        "command": "clang -g -std=c++2b, -Wall imgui/imgui_draw.cpp",
+        "file": "imgui/imgui_draw.cpp"
+    },
+    {
+        "directory": ".",
+        "command": "clang -g -std=c++2b, -Wall imgui/imgui_tables.cpp",
+        "file": "imgui/imgui_tables.cpp"
+    },
+    {
+        "directory": ".",
+        "command": "clang -g -std=c++2b, -Wall imgui/imgui_widgets.cpp",
+        "file": "imgui/imgui_widgets.cpp"
+    },
+    {
+        "directory": ".",
+        "command": "clang -g -std=c++2b, -Wall imgui/backends/imgui_impl_sdl2.cpp",
+        "file": "imgui/backends/imgui_impl_sdl2.cpp"
+    },
+    {
+        "directory": ".",
+        "command": "clang -g -std=c++2b, -Wall imgui/backends/imgui_impl_opengl3.cpp",
+        "file": "imgui/backends/imgui_impl_opengl3.cpp"
+    },
+    {
+        "directory": ".",
+        "command": "clang -g -std=c++2b, -Wall imgui/misc/cpp/imgui_stdlib.cpp",
+        "file": "imgui/misc/cpp/imgui_stdlib.cpp"
+    }
+]
